@@ -63,3 +63,22 @@
 (defn pprint [x]
   (binding [*print-namespace-maps* false]
     (pprint/pprint x)))
+
+(defn profiles-to-aliases-converter [profiles]
+  (reduce #(let [profile (val %2)
+                 profile-deps (:dependencies profile)
+                 alias-deps (into (sorted-map)
+                                  (map convert-dep
+                                      profile-deps))
+                 extra-paths (into [] (concat (:source-paths profile)
+                                              (:resource-paths profile)))
+                 converted-alias (cond-> {}
+                                   (seq extra-paths) (assoc :extra-paths extra-paths)
+                                   (seq alias-deps)  (assoc :extra-deps alias-deps))]
+             (if (empty? converted-alias)
+               %1
+               (assoc %1
+                     (key %2)
+                     converted-alias)))
+          {}
+          profiles))

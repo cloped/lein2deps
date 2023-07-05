@@ -7,7 +7,8 @@
                                add-prep-lib
                                #_:clj-kondo/ignore
                                defproject
-                               pprint]]))
+                               pprint
+                               profiles-to-aliases-converter]]))
 
 (defn lein2deps
   "Converts project.clj to deps.edn.
@@ -30,9 +31,16 @@
         project-edn (merge {:compile-path "target/classes"
                             :source-paths ["src"]
                             :resource-paths ["resources"]}
-                           project-edn)
-        {:keys [dependencies source-paths resource-paths compile-path java-source-paths repositories]} project-edn
+                      project-edn)
+        {:keys [dependencies
+                source-paths
+                resource-paths
+                compile-path
+                java-source-paths
+                repositories
+                profiles]} project-edn
         deps (map convert-dep dependencies)
+        profiles-aliases (profiles-to-aliases-converter profiles)
         dev-deps (into (ordered-map) (keep #(when (= :dev (:alias (second %)))
                                               [(first %) (dissoc (second %) :alias)])
                                            deps))
@@ -45,7 +53,9 @@
                    java-source-paths
                    (add-prep-lib project-edn)
                    (seq repositories) (assoc :mvn/repos (into {} repositories))
-                   (seq dev-deps) (assoc-in [:aliases :dev :extra-deps] dev-deps))]
+                   (seq dev-deps) (assoc-in [:aliases :dev :extra-deps] dev-deps)
+                   (seq profiles-aliases) (assoc :aliases profiles-aliases))]
+    (tap> deps)
     (when-let [f (:write-file opts)]
       (spit (str f) (with-out-str (pprint deps-edn))))
     (when (:print opts)
@@ -65,3 +75,8 @@ Options:
   --eval              : evaluate project.clj. Use at your own risk.")
       (do (lein2deps (merge {:print true} opts))
           nil))))
+
+(comment
+  (require '[portal.api :as p])
+  (def p (p/open))
+  (add-tap #'p/submit))
